@@ -1,5 +1,5 @@
 """
-Gemini 2.0 Flash explainability layer.
+Gemini 3.5 Flash explainability layer.
 
 The LLM receives XGBoost probability, binary prediction, and SHAP evidence.
 It may ONLY summarize evidence, draft a chargeback response, and suggest an
@@ -109,18 +109,19 @@ def generate_report(
         return _heuristic_report(payload)
 
     try:
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types
 
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
-            system_instruction=SYSTEM_PROMPT,
-            generation_config={
-                "temperature": 0.2,
-                "response_mime_type": "application/json",
-            },
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=json.dumps(payload, default=str),
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                temperature=0.2,
+                response_mime_type="application/json",
+            ),
         )
-        response = model.generate_content(json.dumps(payload, default=str))
         parsed = json.loads(response.text)
         # Hard constraint: never let Gemini change the decision or illegal actions.
         label = ml_result["xgboost_label"]
@@ -133,7 +134,7 @@ def generate_report(
             parsed["recommended_action"] = "clear"
         if label != "fraud":
             parsed["dispute_draft"] = None
-        parsed["llm_backend"] = "gemini-2.0-flash"
+        parsed["llm_backend"] = "gemini-2.5-flash"
         parsed.setdefault("evidence_summary", "")
         parsed.setdefault("confidence_narrative", "")
         return parsed
