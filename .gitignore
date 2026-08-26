@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+audit_log.json
+node_modules/
+dist/
+.DS_Store
+ieee_cis

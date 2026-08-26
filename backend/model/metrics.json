@@ -1,0 +1,24 @@
+{
+  "test": {
+    "precision": 0.6924786958132642,
+    "recall": 0.6030977734753146,
+    "f1": 0.6447050707140394,
+    "false_positive_rate": 0.009709646475281346,
+    "auc_roc": 0.9476870840468149,
+    "threshold": 0.8351018786430355,
+    "n_samples": 88581,
+    "n_fraud": 3099,
+    "n_predicted_fraud": 2699
+  },
+  "validation": {
+    "precision": 0.6866064710308503,
+    "recall": 0.5887096774193549,
+    "f1": 0.633900659951372,
+    "false_positive_rate": 0.009744855581942186,
+    "auc_roc": 0.9465205812572572,
+    "threshold": 0.8351018786430355,
+    "n_samples": 88581,
+    "n_fraud": 3100,
+    "n_predicted_fraud": 2658
+  }
+}

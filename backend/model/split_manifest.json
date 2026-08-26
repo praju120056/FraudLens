@@ -1,0 +1,10 @@
+{
+  "random_state": 42,
+  "train_n": 413378,
+  "val_n": 88581,
+  "test_n": 88581,
+  "train_fraud_rate": 0.034989767234831076,
+  "val_fraud_rate": 0.03499621815061921,
+  "test_fraud_rate": 0.03498492904798998,
+  "note": "Test IDs in locked_test_ids.csv are frozen and unused for fitting."
+}
