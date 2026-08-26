@@ -1,136 +1,155 @@
-﻿# AI Chargeback Risk Manager
+# AI Chargeback Risk Manager — Track 02
 
-A full-stack fraud detection system that scores Razorpay payment transactions in real time using an XGBoost model trained on the [IEEE-CIS Fraud Detection dataset](https://www.kaggle.com/c/ieee-fraud-detection). Every decision is backed by SHAP feature attribution and a Gemini-generated narrative report.
-
----
-
-## Architecture Overview
-
-```
-Razorpay Transaction
-        │
-        ▼
-┌──────────────────┐
-│  Feature         │  Maps Razorpay fields → IEEE-CIS feature space
-│  Engineering     │  (pipeline/feature_engineering.py)
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│  XGBoost Model   │  Fraud probability + binary label
-│  (model.pkl)     │  Threshold: 0.8351 (val-tuned, max F1)
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐     ┌─────────────────┐
-│  SHAP Explainer  │     │  Gemini 2.0      │
-│  (top-5 features)│────▶│  Flash Report    │  Narrative only — never overrides XGBoost
-└────────┬─────────┘     └────────┬────────┘
-         │                        │
-         └──────────┬─────────────┘
-                    ▼
-           ┌────────────────┐
-           │  Audit Logger  │  Persisted to audit_log.json
-           └────────┬───────┘
-                    ▼
-           ┌────────────────┐
-           │  React Dashboard│  Dark-theme UI, live feed, metrics panel
-           └────────────────┘
-```
+> **Stop the merchant losing money to fraud, returns, and chargebacks.**  
+> A defense-only fraud detector, evidence verifier, and auto-responder scoring payment transactions with **measured precision, recall, and false-positive cost** on a locked held-out test set.
 
 ---
 
-## Model Performance
+## Interface Walkthrough
 
-Trained on `ieee_cis/train_transaction.csv` (590,540 rows). Split: **70 / 15 / 15** (`random_state=42`, stratified on `isFraud`). The held-out test set was **never** used during fitting, feature encoding, or threshold selection.
+### 1. Payment Risk Assessment Workbench
+*Ingest raw Razorpay payment payloads -> Feature normalization -> XGBoost ML Ground Truth -> SHAP TreeExplainer -> Gemini Ground Truth Evidence & Auto-Drafted Chargeback Dispute Defense.*
 
-| Metric              | Validation | Test (Held-out)      |
-|---------------------|------------|----------------------|
-| Precision           | 0.6866     | **0.6925**           |
-| Recall              | 0.5887     | **0.6031**           |
-| F1                  | 0.6339     | **0.6447**           |
-| False Positive Rate | 0.00974    | **0.00971**          |
-| AUC-ROC             | 0.9465     | **0.9477**           |
-| Decision Threshold  | 0.8351     | 0.8351               |
-| Test samples        | 88,581     | 88,581 (3,099 fraud) |
-
-Class imbalance handled via `scale_pos_weight = 27.5798` (train split only).
+![Payment Risk Assessment Workbench](docs/screenshots/workbench_analyzer.png)
 
 ---
 
-## Project Structure
+### 2. Real-Time Telemetry Stream & Audit Trail Inspector
+*Live payment stream evaluated against the locked threshold (0.8351) with filter tabs (Escalate, Monitor, Cleared) and deep immutable audit drawer.*
+
+![Telemetry Feed & Audit Trail](docs/screenshots/live_feed_audit.png)
+
+---
+
+### 3. Honest Metrics & Economic ROI / False-Positive Cost Simulator
+*Evaluated strictly on 88,581 held-out test samples with interactive Rupee business impact modeling (AOV x FPR).*
+
+![Honest Metrics & ROI Simulator](docs/screenshots/honest_metrics_roi.png)
+
+---
+
+## Key Highlights & Performance Benchmark
+
+| Requirement | Implementation & Measured Metric | Verification Protocol |
+|---|---|---|
+| **Class of Loss** | Carding attacks, payment fraud, and dispute chargebacks | Ingests real & test-mode Razorpay payloads |
+| **Ground Truth ML** | **XGBoost Classifier** (400 estimators, `scale_pos_weight = 27.58`) | Trained on 590,540 IEEE-CIS transactions |
+| **Precision** | **69.25%** on locked test set | 7 out of 10 flagged transactions are true fraud |
+| **Recall** | **60.31%** on locked test set | Catches >60% of all fraud attacks |
+| **AUC-ROC** | **0.9477** | Outstanding discrimination across decision space |
+| **False Positive Rate** | **0.00971 (0.97%)** | Explicitly reported & priced in Rupee economics |
+| **Zero Data Leakage** | **70 / 15 / 15 Stratified Split** | Test IDs frozen in `locked_test_ids.csv` |
+| **Explainability** | **TreeSHAP Attributions** (top 5 directional drivers) | Real-time feature contribution breakdown |
+| **LLM Ground Truth** | **Gemini Cascade** (`gemini-3.6-flash` -> `3.5-flash` -> Heuristic) | Never overrides ML decision; drafts dispute responses |
+| **Defense-Only** | Hardcoded immutable classification constraint | Disqualifies any offensive capability |
+
+---
+
+## 5-Stage Zero-Leakage Pipeline Architecture
 
 ```
-razorpay/
-├── backend/
-│   ├── main.py                      # FastAPI app & endpoint definitions
-│   ├── requirements.txt
-│   ├── .env                         # API keys (see Configuration)
-│   ├── audit_log.json               # Persisted analysis records
-│   ├── model/
-│   │   ├── train.py                 # XGBoost training script
-│   │   ├── predict.py               # Inference & bundle loading
-│   │   ├── explainer.py             # SHAP TreeExplainer (top-5 features)
-│   │   ├── model.pkl                # Trained artifact (joblib)
-│   │   ├── metrics.json             # Locked test/val metrics
-│   │   ├── split_manifest.json      # Reproducible split record
-│   │   └── locked_test_ids.csv      # Held-out TransactionIDs
-│   ├── pipeline/
-│   │   ├── feature_engineering.py   # Razorpay → IEEE-CIS feature mapping
-│   │   ├── llm_report.py            # Gemini 2.0 Flash report generator
-│   │   └── audit_logger.py          # Read/write audit_log.json
-│   └── razorpay/
-│       └── test_transactions.py     # 12 synthetic Razorpay-shaped payloads
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Dashboard.jsx        # Main view: live feed + metrics
-│   │   │   ├── TransactionCard.jsx  # Per-transaction summary card
-│   │   │   ├── FraudReport.jsx      # SHAP + Gemini report display
-│   │   │   └── AuditTrail.jsx       # Audit log viewer
-│   │   ├── App.jsx
-│   │   └── styles.css
-│   ├── vite.config.js               # Proxy: /api → localhost:8000
-│   └── package.json
-└── ieee_cis/                        # Raw IEEE-CIS dataset (not tracked in git)
-    ├── train_transaction.csv
-    ├── train_identity.csv
-    ├── test_transaction.csv
-    └── test_identity.csv
++-------------------------+
+| 1. Razorpay Ingestion   |  Raw webhook/SDK JSON (paise, method, IIN, contact, timestamps)
++------------+------------+
+             |
+             v
++-------------------------+
+| 2. Feature Engineering  |  Maps Razorpay -> 42 IEEE-CIS features using TRAIN-SET medians
++------------+------------+
+             |
+             v
++-------------------------+
+| 3. XGBoost Engine       |  Scores posterior P(fraud). Evaluated at threshold = 0.8351
++------------+------------+
+             |
+             v
++-------------------------+
+| 4. SHAP TreeExplainer   |  Calculates exact directional attribution vectors for top 5 drivers
++------------+------------+
+             |
+             v
++-------------------------+
+| 5. Gemini Cascade       |  Synthesizes evidence summary & drafts formal dispute package
++------------+------------+
+             |
+             v
++-------------------------+
+| 6. Immutable Audit Trail|  Persisted to audit_log.json + Streamed to Live Dashboard
++-------------------------+
 ```
 
 ---
 
-## API Endpoints
+## False-Positive Cost & Rupee Economic Impact
 
-| Method | Endpoint                  | Description                                              |
-|--------|---------------------------|----------------------------------------------------------|
-| `GET`  | `/health`                 | Liveness check; confirms `model.pkl` is present         |
-| `POST` | `/analyze`                | Run full pipeline on a raw Razorpay transaction payload  |
-| `GET`  | `/transactions`           | List all analysed transactions from the audit log        |
-| `GET`  | `/metrics`                | Return held-out test metrics from `metrics.json`         |
-| `GET`  | `/audit/{transaction_id}` | Fetch full audit record for a specific transaction       |
-| `POST` | `/demo/seed`              | Analyze 12 synthetic payloads and populate the live feed |
-| `GET`  | `/demo/transactions`      | Return pre-generated demo transactions                   |
+The competition bar requires **honest metrics including false-positive cost**. Reporting raw accuracy or F1 alone ignores merchant friction:
 
-Interactive API docs available at `http://localhost:8000/docs` when the server is running.
+$$\text{FPR} = \frac{\text{False Positives}}{\text{True Negatives} + \text{False Positives}} = \mathbf{0.9710\%}$$
 
----
+### Economic Impact Model ($AOV = \text{Rs. 2,500}$)
 
-## Prerequisites
+At a monthly volume of **50,000 transactions** with a natural fraud rate of ~3.5%:
 
-| Dependency | Version |
-|------------|---------|
-| Python     | ≥ 3.10  |
-| Node.js    | ≥ 18    |
-| npm        | ≥ 9     |
+- **Fraud Loss Prevented**: $\approx 1,055\text{ attacks caught} \times \text{Rs. 2,500} = \mathbf{+\text{Rs. 26,37,500/month}}$
+- **False-Positive Friction**: $\approx 469\text{ legit txns flagged} \times \text{Rs. 2,500} = \mathbf{-\text{Rs. 11,72,500/month}}$
+- **Net Merchant Financial Margin**: $\mathbf{+\text{Rs. 14,65,000/month preserved}}$
+
+*The decision threshold (0.8351) was chosen on the validation split to maximize F1, striking an optimal balance between catching fraud and minimizing customer checkout friction.*
 
 ---
 
-## Configuration
+## Multi-Model Gemini Fallback Cascade
 
-Edit `backend/.env` with your credentials:
+To ensure high availability in production, [`backend/pipeline/llm_report.py`](backend/pipeline/llm_report.py) implements an automatic multi-model fallback cascade using the `google-genai` SDK:
 
+```python
+DEFAULT_MODELS_CASCADE = [
+    "gemini-3.6-flash",      # Primary high-speed synthesizer
+    "gemini-3.5-flash",      # Secondary fallback
+    "gemini-3.5-flash-lite", # High-throughput fallback
+    "gemini-2.5-flash",      # Standard fallback
+    "gemini-2.0-flash",      # Legacy fallback
+    "gemini-2.0-flash-lite", # Lightweight fallback
+    "gemini-1.5-flash",      # Baseline fallback
+]
+```
+
+- If an upstream model experiences rate limits (`429`) or temporary unavailability (`503`), the engine automatically attempts the next candidate in the cascade.
+- If all API models fail or `GEMINI_API_KEY` is unset, the system seamlessly uses the deterministic `_heuristic_report()` engine so payment scoring **never halts**.
+
+---
+
+## Defense-Only Security Guarantee
+
+1. **XGBoost is the Sole Decision Maker**: The ML probability and threshold determine `xgboost_label`.
+2. **Immutable Server-Side Actions**:
+   - `xgboost_label == "fraud"` -> `recommended_action = "escalate"` (auto-drafts dispute package)
+   - `xgboost_label == "not_fraud"` and $P(\text{fraud}) \ge 0.35$ -> `recommended_action = "monitor"`
+   - otherwise -> `recommended_action = "clear"` (`dispute_draft = null`)
+3. **Strict Non-Contradiction**: Gemini only explains evidence and formats chargeback responses; it is strictly prevented from altering or softening the ML verdict.
+
+---
+
+## Quickstart & Installation
+
+### Prerequisites
+- Python >= 3.10
+- Node.js >= 18
+
+### 1. Clone & Setup Backend
+```bash
+git clone https://github.com/praju120056/razorpay_track2.git
+cd razorpay_track2/backend
+
+# Create virtual environment
+python -m venv venv
+venv\Scripts\activate   # On Windows (or 'source venv/bin/activate' on Linux/macOS)
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### 2. Configure Environment (`backend/.env`)
 ```env
 RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxx
 RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
@@ -140,106 +159,41 @@ AUDIT_LOG_PATH=./audit_log.json
 IEEE_DATA_PATH=../ieee_cis/train_transaction.csv
 ```
 
-> **Note:** `GEMINI_API_KEY` is optional. If absent, the system falls back to a heuristic rule-based report.
-
----
-
-## Running the Project
-
-### 1. Clone the repository
-
+### 3. Start Backend Server
 ```bash
-git clone <repo-url>
-cd razorpay
-```
-
-### 2. Backend — install dependencies
-
-```bash
-cd backend
-
-# Create and activate a virtual environment
-python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# macOS / Linux
-source venv/bin/activate
-
-# Install Python packages
-pip install -r requirements.txt
-```
-
-### 3. Backend — start the FastAPI server
-
-```bash
-# From the backend/ directory, with venv active
+# From backend/
 python main.py
 ```
+*API running at `http://127.0.0.1:8000` (Swagger docs at `http://127.0.0.1:8000/docs`).*
 
-The API will be available at **`http://localhost:8000`**.  
-Swagger UI: **`http://localhost:8000/docs`**
-
-### 4. Frontend — install dependencies and start dev server
-
-Open a **new terminal**:
-
+### 4. Start Frontend Dashboard
 ```bash
-cd frontend
+cd ../frontend
 npm install
 npm run dev
 ```
-
-The dashboard will be available at **`http://localhost:5173`**.
-
-### 5. Seed demo data (optional)
-
-With both servers running, populate the live feed with 12 synthetic transactions:
-
-```bash
-curl -X POST http://localhost:8000/demo/seed
-```
-
-Or click the **Seed Demo** button in the dashboard UI.
+*UI dashboard running at `http://localhost:5173` (or `http://localhost:5174`).*
 
 ---
 
-## Retraining the Model
+## API Endpoints Reference
 
-The pre-trained `model.pkl` is included and ready to use. To retrain from scratch:
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/analyze` | Run full pipeline on raw Razorpay JSON payload |
+| `GET` | `/metrics` | Return locked held-out test metrics & split manifest |
+| `GET` | `/transactions` | List all analyzed transactions from audit log |
+| `GET` | `/audit/{id}` | Fetch full audit record and SHAP vectors for payment ID |
+| `POST` | `/demo/seed` | Ingest 16 synthetic test-mode payments into the live feed |
+| `GET` | `/health` | Liveness check confirming `model.pkl` is loaded |
 
-1. Ensure the IEEE-CIS dataset files are present under `ieee_cis/`.
-2. Run the training script from inside the `backend/` directory:
+---
 
+## Retraining from Scratch
+
+To re-verify the split protocol and reproduce the exact metrics:
 ```bash
 cd backend
 python -m model.train
 ```
-
-This overwrites `model/model.pkl`, `model/metrics.json`, `model/split_manifest.json`, and `model/locked_test_ids.csv`.
-
----
-
-## Feature Mapping
-
-The pipeline maps Razorpay-specific fields to the IEEE-CIS feature space before inference:
-
-| Razorpay Field   | IEEE-CIS Feature | Notes                                          |
-|------------------|------------------|------------------------------------------------|
-| `amount` (paise) | `TransactionAmt` | Divided by 100 to convert paise → rupees       |
-| `method`         | `ProductCD`      | `card→C`, `upi→W`, `netbanking→H`, `wallet→R`, `emi→S` |
-| `card_network`   | `card4`          | RuPay approximated as `discover` (no RuPay in IEEE-CIS) |
-| `card_type`      | `card6`          | `credit` / `debit`                             |
-| C/D/V features   | Various          | Filled with train-split medians from the bundle |
-
-> Identity table features are not used. The model operates on transaction-level features only.
-
----
-
-## Key Design Decisions
-
-- **XGBoost is the sole decision engine.** Gemini 2.0 Flash is used exclusively for human-readable narrative reporting and never overrides the ML classification.
-- **Strict train/test separation.** Test `TransactionID`s are written to `locked_test_ids.csv` before any fitting begins and are excluded from all preprocessing steps.
-- **Threshold selected on validation only.** The decision threshold (0.8351) maximises F1 on the validation split. The test set was evaluated exactly once.
-- **Audit trail.** Every analysed transaction is persisted to `audit_log.json`, queryable via `GET /audit/{transaction_id}`.
+This executes the stratified split, saves `locked_test_ids.csv`, tunes the threshold on validation, evaluates once on test, and outputs `metrics.json` and `model.pkl`.

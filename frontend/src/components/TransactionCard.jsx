@@ -74,8 +74,8 @@ export default function TransactionCard({ item, onSelect, isSelected }) {
 
       {/* Col 4: Action Status Pill */}
       <div>
-        <span className={`action-capsule ${action}`} style={{ fontSize: 11, padding: "4px 10px", width: "fit-content" }}>
-          {action === "escalate" ? "⚡ Escalate" : action === "monitor" ? "👁 Monitor" : "✓ Cleared"}
+        <span className={`action-capsule ${action}`} style={{ fontSize: 10.5, padding: "4px 8px", width: "fit-content" }}>
+          {action.toUpperCase()}
         </span>
       </div>
 

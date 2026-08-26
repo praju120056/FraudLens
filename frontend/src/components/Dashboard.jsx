@@ -14,7 +14,7 @@ import {
 const PRESETS = [
   {
     id: "preset_fraud_high",
-    title: "🚨 High-Risk Card Velocity",
+    title: "High-Risk Velocity Attack",
     badge: "Escalate",
     badgeType: "fraud",
     data: {
@@ -39,7 +39,7 @@ const PRESETS = [
   },
   {
     id: "preset_clear_upi",
-    title: "🟢 Verified UPI Rail",
+    title: "Verified Domestic UPI",
     badge: "Clear",
     badgeType: "clear",
     data: {
@@ -58,7 +58,7 @@ const PRESETS = [
   },
   {
     id: "preset_monitor_takeover",
-    title: "🟡 Borderline Takeover",
+    title: "Borderline Account Velocity",
     badge: "Monitor",
     badgeType: "monitor",
     data: {
@@ -77,7 +77,7 @@ const PRESETS = [
   },
   {
     id: "preset_intl_amex",
-    title: "💳 International Luxury Amex",
+    title: "International Corporate Card",
     badge: "Evaluate",
     badgeType: "clear",
     data: {

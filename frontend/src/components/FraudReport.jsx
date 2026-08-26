@@ -94,7 +94,7 @@ export default function FraudReport({ result }) {
 
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
             <div className={`action-capsule ${action}`}>
-              {action === "escalate" ? "⚡ ESCALATE DISPUTE" : action === "monitor" ? "👁 ACTIVE MONITOR" : "✓ CLEAR PAYMENT"}
+              {action === "escalate" ? "ESCALATE DISPUTE" : action === "monitor" ? "ACTIVE MONITOR" : "CLEAR PAYMENT"}
             </div>
             {gemini.llm_backend && (
               <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontFamily: "JetBrains Mono", color: "var(--brand-cyan)" }}>
