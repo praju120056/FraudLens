@@ -7,6 +7,9 @@
 
 ## Interface Walkthrough
 
+### Live demo
+> Check it out at : https://fraudlens-lyart.vercel.app/
+
 ### 1. Payment Risk Assessment Workbench
 *Ingest raw Razorpay payment payloads -> Feature normalization -> XGBoost ML Ground Truth -> SHAP TreeExplainer -> Gemini Ground Truth Evidence & Auto-Drafted Chargeback Dispute Defense.*
 
