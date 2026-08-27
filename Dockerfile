@@ -3,7 +3,7 @@ FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8000
+    PORT=8080
 
 WORKDIR /app
 
@@ -20,7 +20,6 @@ RUN pip install --no-cache-dir -r ./requirements.txt
 # Copy backend application code and model artifacts into /app
 COPY backend/ .
 
-EXPOSE 8000
+EXPOSE 8080
 
-# Runs main.py which safely parses os.environ.get("PORT", 8000) as an integer
 CMD ["python", "main.py"]
