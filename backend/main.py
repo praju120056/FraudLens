@@ -65,10 +65,26 @@ def run_pipeline(raw_txn: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+@app.get("/")
+def root():
+    return {
+        "status": "ok",
+        "app": "FraudLens",
+        "description": "FraudLens: Defense-only payment fraud detector and evidence verifier",
+        "docs": "/docs",
+        "health": "/health",
+        "version": "1.0.0"
+    }
+
+
 @app.get("/health")
 def health():
-    bundle = load_bundle()
-    return {"status": "ok", "app": "FraudLens", "model_loaded": bundle is not None}
+    try:
+        bundle = load_bundle()
+        model_loaded = bundle is not None
+    except Exception:
+        model_loaded = False
+    return {"status": "ok", "app": "FraudLens", "model_loaded": model_loaded}
 
 
 @app.post("/analyze")
