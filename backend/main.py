@@ -6,6 +6,7 @@ XGBoost is the sole decision engine. Gemini only explains and drafts reports.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -24,8 +25,8 @@ from pipeline.llm_report import generate_report
 from razorpay.test_transactions import generate_demo_if_needed, synthetic_test_transactions
 
 app = FastAPI(
-    title="AI Chargeback Risk Manager",
-    description="XGBoost fraud scores with SHAP evidence and Gemini reporting. ML decision is final.",
+    title="FraudLens — AI Chargeback Risk Manager",
+    description="FraudLens: XGBoost fraud scores with SHAP evidence and Gemini reporting. ML decision is final.",
     version="1.0.0",
 )
 
@@ -66,57 +67,36 @@ def run_pipeline(raw_txn: dict[str, Any]) -> dict[str, Any]:
 
 @app.get("/health")
 def health():
-    model_ok = Path(
-        os.environ.get("MODEL_PATH", str(Path(__file__).parent / "model" / "model.pkl"))
-    )
-    if not model_ok.is_absolute():
-        model_ok = Path(__file__).parent / "model" / "model.pkl"
-    return {"status": "ok", "model_present": model_ok.exists()}
+    bundle = load_bundle()
+    return {"status": "ok", "app": "FraudLens", "model_loaded": bundle is not None}
 
 
 @app.post("/analyze")
-def analyze(payload: dict[str, Any]):
-    if not payload:
-        raise HTTPException(status_code=400, detail="JSON body required")
+def analyze_transaction(txn: dict[str, Any]):
     try:
-        return run_pipeline(payload)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        return run_pipeline(txn)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@app.get("/transactions")
-def transactions():
-    return {"transactions": list_analyses()}
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/metrics")
-def metrics():
-    try:
-        bundle = load_bundle()
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    test = bundle["metrics"]["test"]
-    return {
-        "precision": test["precision"],
-        "recall": test["recall"],
-        "f1": test["f1"],
-        "false_positive_rate": test["false_positive_rate"],
-        "auc_roc": test["auc_roc"],
-        "threshold": test["threshold"],
-        "n_test": test["n_samples"],
-        "n_fraud_test": test["n_fraud"],
-        "split_manifest": bundle.get("split_manifest"),
-        "validation": bundle["metrics"].get("validation"),
-        "note": "Metrics are computed on the locked held-out test set only.",
-    }
+def get_metrics():
+    metrics_path = Path(__file__).resolve().parent / "model" / "metrics.json"
+    if not metrics_path.exists():
+        raise HTTPException(status_code=404, detail="metrics.json not found")
+    with open(metrics_path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.get("/transactions")
+def list_transactions(limit: int = 50):
+    return {"transactions": list_analyses(limit=limit)}
 
 
 @app.get("/audit/{transaction_id}")
-def audit(transaction_id: str):
+def get_audit(transaction_id: str):
     record = get_analysis(transaction_id)
-    if record is None:
+    if not record:
         raise HTTPException(status_code=404, detail="No audit trail for this transaction_id")
     return record
 
@@ -140,4 +120,5 @@ def seed_demo():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

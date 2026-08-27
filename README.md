@@ -1,7 +1,7 @@
-# AI Chargeback Risk Manager — Track 02
+# FraudLens — AI Chargeback Risk Manager (Track 02)
 
 > **Stop the merchant losing money to fraud, returns, and chargebacks.**  
-> A defense-only fraud detector, evidence verifier, and auto-responder scoring payment transactions with **measured precision, recall, and false-positive cost** on a locked held-out test set.
+> FraudLens is a defense-only fraud detector, evidence verifier, and auto-responder scoring payment transactions with **measured precision, recall, and false-positive cost** on a locked held-out test set.
 
 ---
 
@@ -130,11 +130,35 @@ DEFAULT_MODELS_CASCADE = [
 
 ---
 
-## Quickstart & Installation
+## Cloud Deployment Guide (Railway + Vercel / Render)
 
-### Prerequisites
-- Python >= 3.10
-- Node.js >= 18
+### 1. Deploy Backend on Railway
+1. Push this repository to GitHub.
+2. Sign in to [railway.app](https://railway.app/) and select **New Project** -> **Deploy from GitHub repo**.
+3. Railway automatically uses [`backend/Dockerfile`](backend/Dockerfile) or [`railway.json`](railway.json). Set **Root Directory** to `backend`.
+4. In **Variables**, add:
+   - `GEMINI_API_KEY`: `your_api_key_here`
+   - `MODEL_PATH`: `./model/model.pkl`
+   - `AUDIT_LOG_PATH`: `./audit_log.json`
+5. In **Settings** -> **Networking**, click **Generate Domain** (e.g. `https://fraudlens-backend.up.railway.app`).
+
+### 2. Alternative: Deploy Backend on Render
+1. Sign in to [render.com](https://render.com/) -> **New Web Service**.
+2. Connect repo `praju120056/razorpay_track2`.
+3. Set **Root Directory** = `backend`, **Runtime** = `Python 3`.
+4. Set **Build Command** = `pip install -r requirements.txt` and **Start Command** = `uvicorn main:app --host 0.0.0.0 --port $PORT`.
+5. Add environment variables (`GEMINI_API_KEY`, `MODEL_PATH`, `AUDIT_LOG_PATH`).
+
+### 3. Deploy Frontend on Vercel
+1. Sign in to [vercel.com](https://vercel.com/) -> **Add New Project** -> Import repo.
+2. Set **Root Directory** to `frontend` and **Framework Preset** to `Vite`.
+3. In **Environment Variables**, add:
+   - `VITE_API_BASE_URL`: `https://your-backend-url.up.railway.app` (without trailing slash).
+4. Click **Deploy**. Vercel uses [`frontend/vercel.json`](frontend/vercel.json) for automatic SPA routing.
+
+---
+
+## Local Quickstart & Development
 
 ### 1. Clone & Setup Backend
 ```bash

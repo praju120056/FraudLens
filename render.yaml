@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: fraudlens-backend
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: MODEL_PATH
+        value: ./model/model.pkl
+      - key: AUDIT_LOG_PATH
+        value: ./audit_log.json

@@ -96,6 +96,8 @@ const PRESETS = [
   }
 ];
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+
 export default function Dashboard({ view, onViewChange }) {
   const [selectedPresetId, setSelectedPresetId] = useState(PRESETS[0].id);
   const [jsonText, setJsonText] = useState(JSON.stringify(PRESETS[0].data, null, 2));
@@ -131,7 +133,7 @@ export default function Dashboard({ view, onViewChange }) {
 
   // Load metrics once
   useEffect(() => {
-    fetch("/metrics")
+    fetch(`${API_BASE}/metrics`)
       .then((r) => r.json())
       .then(setMetrics)
       .catch(() => setMetrics(null));
@@ -140,7 +142,7 @@ export default function Dashboard({ view, onViewChange }) {
   // Poll transaction feed every 10s
   useEffect(() => {
     const loadFeed = () => {
-      fetch("/transactions")
+      fetch(`${API_BASE}/transactions`)
         .then((r) => r.json())
         .then((d) => setFeed(d.transactions || []))
         .catch(() => { });
@@ -161,7 +163,7 @@ export default function Dashboard({ view, onViewChange }) {
     setError("");
     try {
       const body = JSON.parse(jsonText);
-      const res = await fetch("/analyze", {
+      const res = await fetch(`${API_BASE}/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -170,7 +172,7 @@ export default function Dashboard({ view, onViewChange }) {
       if (!res.ok) throw new Error(data.detail || "Analysis request failed");
       setResult(data);
       // Auto-update feed list
-      fetch("/transactions").then(r => r.json()).then(d => setFeed(d.transactions || [])).catch(() => { });
+      fetch(`${API_BASE}/transactions`).then(r => r.json()).then(d => setFeed(d.transactions || [])).catch(() => { });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -181,8 +183,8 @@ export default function Dashboard({ view, onViewChange }) {
   const seedDemoFeed = async () => {
     setBusy(true);
     try {
-      await fetch("/demo/seed", { method: "POST" });
-      const d = await fetch("/transactions").then((r) => r.json());
+      await fetch(`${API_BASE}/demo/seed`, { method: "POST" });
+      const d = await fetch(`${API_BASE}/transactions`).then((r) => r.json());
       setFeed(d.transactions || []);
     } finally {
       setBusy(false);
@@ -191,7 +193,7 @@ export default function Dashboard({ view, onViewChange }) {
 
   const openAuditRecord = async (item) => {
     try {
-      const res = await fetch(`/audit/${encodeURIComponent(item.transaction_id)}`);
+      const res = await fetch(`${API_BASE}/audit/${encodeURIComponent(item.transaction_id)}`);
       if (res.ok) setAudit(await res.json());
       else setAudit(item);
     } catch {
@@ -249,20 +251,20 @@ export default function Dashboard({ view, onViewChange }) {
   }, [metrics, monthlyVolume, avgOrderValue]);
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${view === "analyzer" ? "viewport-locked" : ""}`}>
       {/* ── Top Navigation Bar (Skipper HUD) ── */}
-      <header className="header-nav">
+      <header className="header-nav compact-bar">
         <div className="brand-section">
           <div className="brand-logo-badge">
             <ShieldCheck size={18} />
           </div>
           <div className="brand-text-block">
             <div className="brand-title">
-              <DecryptedText text="RAZORPAY RISK MANAGER" speed={25} />
+              <DecryptedText text="FRAUDLENS" speed={25} />
               <span className="brand-version-pill">TRACK_02</span>
             </div>
             <div className="brand-subtitle">
-              Defense-Only • XGBoost Ground Truth • Gemini Cascade Engine
+              FraudLens Defense-Only • XGBoost Ground Truth • Gemini Cascade Engine
             </div>
           </div>
         </div>
