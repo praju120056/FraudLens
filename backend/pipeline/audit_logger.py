@@ -56,8 +56,11 @@ def log_analysis(record: dict[str, Any]) -> dict[str, Any]:
     return entry
 
 
-def list_analyses() -> list[dict[str, Any]]:
-    return list(reversed(_load_all()))
+def list_analyses(limit: int | None = None) -> list[dict[str, Any]]:
+    records = list(reversed(_load_all()))
+    if limit is not None:
+        return records[:limit]
+    return records
 
 
 def get_analysis(transaction_id: str) -> dict[str, Any] | None:
