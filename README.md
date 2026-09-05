@@ -73,7 +73,7 @@ It shows:
 * Live transaction feed
 * Immutable audit records
 
-![Command Center](docs\screenshots\Screenshot (31).png)
+![Command Center](docs/screenshots/Screenshot1.png)
 
 ---
 
@@ -93,7 +93,7 @@ The pipeline then performs:
 6. Recommended action generation
 7. Audit persistence
 
-![Payment Risk Assessment Workbench](docs\screenshots\Screenshot (32).png)
+![Payment Risk Assessment Workbench](docs/screenshots/Screenshot2.png)
 
 ### Explainable Risk Decisions
 
@@ -135,7 +135,7 @@ It provides:
 * Fraud loss prevention estimates
 * Net merchant financial impact
 
-![Intelligence & Economic Impact](docs/screenshots/honest_metrics_roi.png)
+![Intelligence & Economic Impact](docs/screenshots/Screenshot3.png)
 
 The simulator allows merchants to vary:
 
