@@ -1,14 +1,10 @@
 import React, { useState } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid
-} from "recharts";
-import {
   ShieldAlert, ShieldCheck, Eye, Copy, Check,
-  Layers, Database, FileText, ArrowUpRight, ArrowDownRight,
-  AlertTriangle, Cpu, Terminal, Zap, Sparkles
+  Layers, Database, FileText, Terminal, Zap, Sparkles
 } from "lucide-react";
-import SpotlightCard from "./SpotlightCard.jsx";
-import DecryptedText from "./DecryptedText.jsx";
+import Badge from "./Badge.jsx";
+import ShapBar from "./ShapBar.jsx";
 
 export default function FraudReport({ result }) {
   const [activeTab, setActiveTab] = useState("gemini");
@@ -17,17 +13,35 @@ export default function FraudReport({ result }) {
 
   if (!result) {
     return (
-      <SpotlightCard className="empty-hero-state" style={{ minHeight: 360, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-        <div style={{ width: 52, height: 52, borderRadius: "var(--radius-sm)", background: "var(--bg-code)", border: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand-cyan)", marginBottom: 14 }}>
-          <Cpu size={26} />
+      <div className="fl-card" style={{
+        minHeight: "340px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        gap: "10px"
+      }}>
+        <div style={{
+          width: "36px",
+          height: "36px",
+          borderRadius: "var(--fl-radius-sm)",
+          background: "var(--fl-raised)",
+          border: "0.5px solid var(--fl-border)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--fl-ghost)"
+        }}>
+          <Zap size={18} />
         </div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--text-pure)", marginBottom: 6 }}>
-          <DecryptedText text="READY FOR TRANSACTION INGESTION" speed={30} />
-        </h3>
-        <p style={{ maxWidth: 360, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>
-          Select a preset or paste a Razorpay payment payload, then execute <strong style={{ color: "var(--text-primary)" }}>Analyze & Synthesize Evidence</strong> to evaluate XGBoost decision gates, TreeSHAP drivers, and the Gemini ground truth package.
+        <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--fl-bone)" }}>
+          Awaiting Transaction Payload
+        </div>
+        <p style={{ maxWidth: "320px", fontSize: "11.5px", color: "var(--fl-dim)", lineHeight: 1.5 }}>
+          Select a test preset on the left or paste a Razorpay payment object, then execute the pipeline.
         </p>
-      </SpotlightCard>
+      </div>
     );
   }
 
@@ -37,18 +51,7 @@ export default function FraudReport({ result }) {
   const probPct = (prob * 100).toFixed(2);
   const thresholdPct = (Number(result.threshold || 0.8351) * 100).toFixed(2);
   const gemini = result.gemini_output || {};
-
-  const tone = isFraud ? "fraud" : action === "monitor" ? "monitor" : "clear";
-
-  const shapData = (result.shap_values || []).map((s) => ({
-    name: s.feature,
-    value: Number(s.shap_value),
-    direction: s.direction,
-    towards: s.towards,
-    fill: s.direction === "positive" ? "var(--risk-fraud)" : "var(--risk-clear)"
-  }));
-
-  const maxAbsShap = Math.max(...shapData.map(s => Math.abs(s.value)), 0.001);
+  const shap = result.shap_values || [];
 
   const copyDispute = () => {
     if (!gemini.dispute_draft) return;
@@ -64,115 +67,142 @@ export default function FraudReport({ result }) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {/* ── Top Decision Banner (Skipper Tactical HUD) ── */}
-      <div className={`decision-hero-container ${tone}`}>
-        <div className="decision-hero-top">
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div className={`verdict-icon-bubble ${tone}`}>
-              {isFraud ? <ShieldAlert size={24} /> : action === "monitor" ? <Eye size={24} /> : <ShieldCheck size={24} />}
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      {/* ── Top Decision Anchor ── */}
+      <div className="fl-card">
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "16px" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+              <Badge state={action} />
+              <span className="payment-id">{result.transaction_id}</span>
             </div>
-            <div>
-              <div className={`verdict-badge-tag ${tone}`}>
-                XGBoost ML Ground Truth • {result.decision_source}
-              </div>
-              <div className="verdict-main-heading">
-                <DecryptedText
-                  text={isFraud ? "RISK VERDICT: FRAUD CONFIRMED" : action === "monitor" ? "RISK VERDICT: ELEVATED MONITORING" : "RISK VERDICT: TRANSACTION CLEARED"}
-                  speed={25}
-                />
-              </div>
-              <div className="verdict-subtext">
-                Prediction: <strong style={{ color: "var(--text-pure)", fontFamily: "JetBrains Mono" }}>{result.xgboost_label}</strong>
-                <span>•</span>
-                Decision Threshold: <span className="font-mono">{Number(result.threshold).toFixed(4)}</span>
-                <span>•</span>
-                Latency: <span className="font-mono" style={{ color: "var(--brand-cyan)" }}>~18ms</span>
-              </div>
+            <div style={{ fontSize: "11px", color: "var(--fl-dim)" }}>
+              XGBoost Ground Truth ({result.decision_source}) • Latency ~18ms
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-            <div className={`action-capsule ${action}`}>
-              {action === "escalate" ? "ESCALATE DISPUTE" : action === "monitor" ? "ACTIVE MONITOR" : "CLEAR PAYMENT"}
+          <div style={{ textAlign: "right" }}>
+            <div className="data-label">Posterior Probability</div>
+            <div
+              className="display-numeric"
+              style={{
+                color: prob > 0.8351 ? "var(--fl-charge)" : prob >= 0.35 ? "var(--fl-caution)" : "var(--fl-bone)",
+                marginTop: "2px"
+              }}
+            >
+              {probPct}%
             </div>
-            {gemini.llm_backend && (
-              <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontFamily: "JetBrains Mono", color: "var(--brand-cyan)" }}>
-                <Zap size={11} />
-                <span>Backend: {gemini.llm_backend}</span>
-              </div>
-            )}
+            <div className="threshold-annotation">
+              Threshold Cutoff: {thresholdPct}%
+            </div>
           </div>
         </div>
 
-        {/* Probability Gauge Bar */}
-        <div className="gauge-section">
-          <div className="gauge-header-row">
-            <span className="gauge-label">XGBoost Posterior Fraud Probability</span>
-            <span className={`gauge-score-value ${tone}`}>{probPct}%</span>
-          </div>
-          <div className="gauge-track">
-            <div className={`gauge-fill ${tone}`} style={{ width: `${Math.min(prob * 100, 100)}%` }} />
-          </div>
-          <div className="gauge-footer-row">
-            <span>0.00% (Baseline Safe)</span>
-            <span style={{ color: "var(--text-secondary)" }}>Optimal Operating Cutoff: {thresholdPct}%</span>
-            <span>100.00% (High Confidence Attack)</span>
-          </div>
+        {/* Linear Decision Track */}
+        <div style={{
+          height: "4px",
+          background: "var(--fl-raised)",
+          borderRadius: "2px",
+          overflow: "hidden",
+          position: "relative",
+          marginBottom: "6px"
+        }}>
+          <div
+            style={{
+              height: "100%",
+              width: `${Math.min(prob * 100, 100)}%`,
+              backgroundColor: prob > 0.8351 ? "var(--fl-charge)" : prob >= 0.35 ? "var(--fl-caution)" : "var(--fl-clear)",
+              borderRadius: "2px",
+              transition: "width 300ms ease-out"
+            }}
+          />
         </div>
-
-        {gemini.llm_error && (
-          <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: "var(--radius-xs)", background: "rgba(244, 63, 94, 0.1)", border: "1px solid var(--risk-fraud-border)", fontSize: 11.5, color: "#fca5a5", display: "flex", alignItems: "center", gap: 6 }}>
-            <AlertTriangle size={14} />
-            <span>LLM Note: {gemini.llm_error}</span>
-          </div>
-        )}
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "var(--fl-ghost)", fontFamily: "var(--fl-font-data)" }}>
+          <span>0.0% (Safe)</span>
+          <span style={{ color: "var(--fl-dim)" }}>Operating Threshold: {thresholdPct}%</span>
+          <span>100.0% (Definite Fraud)</span>
+        </div>
       </div>
 
-      {/* ── Multi-Tab Deep Dive Suite ── */}
-      <SpotlightCard className="tabs-container" style={{ padding: 20 }}>
-        {/* Navigation Tabs */}
-        <div className="tabs-subnav">
+      {/* ── Inspection Tabs ── */}
+      <div className="fl-card" style={{ padding: "14px 16px" }}>
+        {/* Tab Controls */}
+        <div style={{
+          display: "flex",
+          gap: "8px",
+          borderBottom: "0.5px solid var(--fl-hairline)",
+          paddingBottom: "10px",
+          marginBottom: "14px"
+        }}>
           <button
-            className={`tab-subnav-btn ${activeTab === "gemini" ? "active" : ""}`}
+            className={`btn-ghost ${activeTab === "gemini" ? "active" : ""}`}
+            style={{
+              fontSize: "11.5px",
+              padding: "5px 10px",
+              color: activeTab === "gemini" ? "var(--fl-bone)" : "var(--fl-dim)",
+              background: activeTab === "gemini" ? "var(--fl-raised)" : "transparent"
+            }}
             onClick={() => setActiveTab("gemini")}
           >
-            <Sparkles size={14} />
-            <span>Gemini Narrative ({gemini.llm_backend || "Heuristic"})</span>
+            <Sparkles size={12} />
+            <span>Gemini Synthesis</span>
           </button>
           <button
-            className={`tab-subnav-btn ${activeTab === "shap" ? "active" : ""}`}
+            className={`btn-ghost ${activeTab === "shap" ? "active" : ""}`}
+            style={{
+              fontSize: "11.5px",
+              padding: "5px 10px",
+              color: activeTab === "shap" ? "var(--fl-bone)" : "var(--fl-dim)",
+              background: activeTab === "shap" ? "var(--fl-raised)" : "transparent"
+            }}
             onClick={() => setActiveTab("shap")}
           >
-            <Layers size={14} />
-            <span>SHAP Explainer Vectors ({shapData.length})</span>
+            <Layers size={12} />
+            <span>SHAP Vectors ({shap.length})</span>
           </button>
           <button
-            className={`tab-subnav-btn ${activeTab === "features" ? "active" : ""}`}
+            className={`btn-ghost ${activeTab === "features" ? "active" : ""}`}
+            style={{
+              fontSize: "11.5px",
+              padding: "5px 10px",
+              color: activeTab === "features" ? "var(--fl-bone)" : "var(--fl-dim)",
+              background: activeTab === "features" ? "var(--fl-raised)" : "transparent"
+            }}
             onClick={() => setActiveTab("features")}
           >
-            <Database size={14} />
-            <span>IEEE-CIS 42-Feature Vector</span>
+            <Database size={12} />
+            <span>IEEE-CIS (42 Dim)</span>
           </button>
           <button
-            className={`tab-subnav-btn ${activeTab === "raw" ? "active" : ""}`}
+            className={`btn-ghost ${activeTab === "raw" ? "active" : ""}`}
+            style={{
+              fontSize: "11.5px",
+              padding: "5px 10px",
+              color: activeTab === "raw" ? "var(--fl-bone)" : "var(--fl-dim)",
+              background: activeTab === "raw" ? "var(--fl-raised)" : "transparent"
+            }}
             onClick={() => setActiveTab("raw")}
           >
-            <Terminal size={14} />
-            <span>Audit Response JSON</span>
+            <Terminal size={12} />
+            <span>Audit JSON</span>
           </button>
         </div>
 
-        {/* Tab 1: Gemini Reasoning & Chargeback Responder */}
+        {/* Tab 1: Gemini Synthesis */}
         {activeTab === "gemini" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {gemini.evidence_summary && (
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, fontFamily: "JetBrains Mono", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: 6 }}>
-                  <FileText size={13} />
-                  <span>Synthesized Evidence Summary</span>
-                </div>
-                <div className="ai-narrative-box">
+                <div className="data-label" style={{ marginBottom: "4px" }}>Synthesized Evidence Analysis</div>
+                <div style={{
+                  background: "var(--fl-bg)",
+                  border: "0.5px solid var(--fl-hairline)",
+                  borderRadius: "var(--fl-radius-sm)",
+                  padding: "12px",
+                  fontSize: "12px",
+                  color: "var(--fl-bone)",
+                  lineHeight: "1.5"
+                }}>
                   {gemini.evidence_summary}
                 </div>
               </div>
@@ -180,131 +210,103 @@ export default function FraudReport({ result }) {
 
             {gemini.confidence_narrative && (
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, fontFamily: "JetBrains Mono", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: 6 }}>
-                  <Zap size={13} />
-                  <span>Model Confidence & Operational Logic</span>
-                </div>
-                <div className="ai-confidence-box">
+                <div className="data-label" style={{ marginBottom: "4px" }}>Ground Truth Calibration Logic</div>
+                <div style={{
+                  background: "var(--fl-bg)",
+                  border: "0.5px solid var(--fl-hairline)",
+                  borderRadius: "var(--fl-radius-sm)",
+                  padding: "12px",
+                  fontSize: "11.5px",
+                  color: "var(--fl-dim)",
+                  lineHeight: "1.5"
+                }}>
                   {gemini.confidence_narrative}
                 </div>
               </div>
             )}
 
-            {/* Chargeback Dispute Responder */}
+            {/* Auto Dispute Dossier */}
             {isFraud && gemini.dispute_draft ? (
-              <div className="dispute-evidence-box">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <ShieldAlert size={16} color="var(--risk-fraud)" />
-                    <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "JetBrains Mono", color: "#ffe4e6", textTransform: "uppercase" }}>
-                      Auto-Drafted Chargeback Dispute Defense
-                    </span>
+              <div style={{
+                background: "var(--fl-bg)",
+                border: "0.5px solid var(--fl-border)",
+                borderRadius: "var(--fl-radius-sm)",
+                padding: "12px"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <ShieldAlert size={14} color="var(--fl-charge)" />
+                    <span className="data-label" style={{ color: "var(--fl-charge-dim)" }}>Auto-Drafted Chargeback Dispute Dossier</span>
                   </div>
-                  <button className="btn-secondary" onClick={copyDispute}>
-                    {copiedDispute ? <Check size={13} color="var(--risk-clear)" /> : <Copy size={13} />}
+                  <button className="btn-accent-ghost" style={{ padding: "4px 8px", fontSize: "11px" }} onClick={copyDispute}>
+                    {copiedDispute ? <Check size={11} /> : <Copy size={11} />}
                     <span>{copiedDispute ? "Copied" : "Copy Dispute Text"}</span>
                   </button>
                 </div>
-                <div className="dispute-text-content">
+                <div style={{
+                  fontFamily: "var(--fl-font-data)",
+                  fontSize: "11px",
+                  color: "var(--fl-dim)",
+                  lineHeight: "1.4",
+                  whiteSpace: "pre-wrap"
+                }}>
                   {gemini.dispute_draft}
                 </div>
               </div>
             ) : (
-              <div style={{ padding: "12px 14px", borderRadius: "var(--radius-sm)", background: "var(--bg-code)", border: "1px solid var(--border-subtle)", fontSize: 12, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 8 }}>
-                <ShieldCheck size={15} color="var(--risk-clear)" />
-                <span>Dispute response not generated — payment scored below fraud threshold.</span>
+              <div style={{
+                padding: "10px 12px",
+                background: "var(--fl-bg)",
+                border: "0.5px solid var(--fl-hairline)",
+                borderRadius: "var(--fl-radius-sm)",
+                fontSize: "11.5px",
+                color: "var(--fl-ghost)"
+              }}>
+                Dispute defense dossier is only auto-generated for transactions crossing the 0.8351 fraud threshold.
               </div>
             )}
           </div>
         )}
 
-        {/* Tab 2: SHAP Feature Attribution */}
+        {/* Tab 2: SHAP Attribution Bars */}
         {activeTab === "shap" && (
           <div>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-pure)" }}>TreeExplainer Attribution Drivers</div>
-              <div style={{ fontSize: 11.5, color: "var(--text-muted)" }}>Positive values push probability toward fraud; negative values pull toward legitimate.</div>
-            </div>
-
-            {/* Bar Chart Visualization */}
-            <div style={{ height: 210, width: "100%", marginBottom: 16 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={shapData} layout="vertical" margin={{ left: 10, right: 30, top: 4, bottom: 4 }}>
-                  <CartesianGrid stroke="rgba(255,255,255,0.04)" horizontal={false} />
-                  <XAxis type="number" stroke="#64748b" tick={{ fontSize: 10.5, fill: '#64748b' }} tickFormatter={(v) => v.toFixed(3)} />
-                  <YAxis type="category" dataKey="name" width={110} stroke="#64748b" tick={{ fontSize: 10.5, fill: '#94a3b8', fontFamily: 'JetBrains Mono' }} />
-                  <Tooltip
-                    contentStyle={{ background: "#07090d", border: "1px solid var(--border-medium)", borderRadius: 6, fontSize: 11, fontFamily: 'JetBrains Mono' }}
-                    formatter={(v, _, item) => [
-                      `${v.toFixed(5)} (${item.payload.direction === 'positive' ? 'Increased Risk' : 'Reduced Risk'})`,
-                      item.payload.name
-                    ]}
-                  />
-                  <Bar dataKey="value" radius={2}>
-                    {shapData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* List breakdown */}
-            <div style={{ display: "grid", gap: 8 }}>
-              {shapData.map((item, i) => {
-                const pct = (Math.abs(item.value) / maxAbsShap) * 100;
-                const isPos = item.direction === "positive";
-                return (
-                  <div className="shap-card-item" key={i}>
-                    <div className="shap-meta-row">
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {isPos ? <ArrowUpRight size={14} color="var(--risk-fraud)" /> : <ArrowDownRight size={14} color="var(--risk-clear)" />}
-                        <span className="shap-feature-name">{item.name}</span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span className={`shap-value-tag ${isPos ? "pos" : "neg"}`}>
-                          {isPos ? "+" : ""}{item.value.toFixed(5)}
-                        </span>
-                        <span style={{ fontSize: 10.5, color: "var(--text-muted)" }}>
-                          → {item.towards}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="shap-progress-track">
-                      <div className={`shap-progress-fill ${isPos ? "pos" : "neg"}`} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ShapBar shapValues={shap} />
           </div>
         )}
 
-        {/* Tab 3: IEEE-CIS Vector Table */}
+        {/* Tab 3: IEEE-CIS Feature Space */}
         {activeTab === "features" && (
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-pure)" }}>42-Dimension Feature Vector Ingestion</div>
-              <div style={{ fontSize: 11, fontFamily: "JetBrains Mono", color: "var(--text-muted)" }}>{Object.keys(result.input_features || {}).length} Columns</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <span className="data-label">42-Dimension Feature Vector</span>
+              <span style={{ fontSize: "10px", color: "var(--fl-ghost)", fontFamily: "var(--fl-font-data)" }}>
+                {Object.keys(result.input_features || {}).length} Columns
+              </span>
             </div>
-            <div className="data-table-wrap" style={{ maxHeight: 380 }}>
-              <table className="modern-table">
+            <div style={{
+              maxHeight: "300px",
+              overflowY: "auto",
+              border: "0.5px solid var(--fl-hairline)",
+              borderRadius: "var(--fl-radius-sm)"
+            }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px", fontFamily: "var(--fl-font-data)" }}>
                 <thead>
-                  <tr>
-                    <th>Feature Column</th>
-                    <th>Model Input Value</th>
-                    <th>Encoding Type</th>
+                  <tr style={{ background: "var(--fl-bg)", borderBottom: "0.5px solid var(--fl-hairline)", textAlign: "left", color: "var(--fl-ghost)" }}>
+                    <th style={{ padding: "6px 10px", fontWeight: 500 }}>Feature</th>
+                    <th style={{ padding: "6px 10px", fontWeight: 500 }}>Value</th>
+                    <th style={{ padding: "6px 10px", fontWeight: 500 }}>Type</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(result.input_features || {}).map(([key, val]) => (
-                    <tr key={key}>
-                      <td className="font-mono" style={{ color: "var(--text-primary)", fontWeight: 600 }}>{key}</td>
-                      <td className="font-mono" style={{ color: "var(--brand-cyan)" }}>
-                        {val === null || val === undefined ? "—" : typeof val === "number" ? val.toLocaleString(undefined, { maximumFractionDigits: 4 }) : String(val)}
+                  {Object.entries(result.input_features || {}).map(([k, v]) => (
+                    <tr key={k} style={{ borderBottom: "0.5px solid var(--fl-hairline)" }}>
+                      <td style={{ padding: "5px 10px", color: "var(--fl-dim)" }}>{k}</td>
+                      <td style={{ padding: "5px 10px", color: "var(--fl-bone)" }}>
+                        {v === null || v === undefined ? "—" : typeof v === "number" ? v.toFixed(4) : String(v)}
                       </td>
-                      <td style={{ fontSize: 10.5, fontFamily: "JetBrains Mono", color: "var(--text-muted)" }}>
-                        {typeof val === "number" ? "Float32" : "CategoricalID"}
+                      <td style={{ padding: "5px 10px", color: "var(--fl-ghost)", fontSize: "10px" }}>
+                        {typeof v === "number" ? "Float32" : "Categorical"}
                       </td>
                     </tr>
                   ))}
@@ -314,32 +316,32 @@ export default function FraudReport({ result }) {
           </div>
         )}
 
-        {/* Tab 4: Standardized Raw JSON */}
+        {/* Tab 4: Raw JSON */}
         {activeTab === "raw" && (
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-pure)" }}>Audit Trace & Response Payload</div>
-              <button className="btn-secondary" onClick={copyPayload}>
-                {copiedPayload ? <Check size={13} color="var(--risk-clear)" /> : <Copy size={13} />}
-                <span>{copiedPayload ? "Copied" : "Copy Payload"}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <span className="data-label">Standardized Response Payload</span>
+              <button className="btn-ghost" style={{ padding: "3px 8px", fontSize: "11px" }} onClick={copyPayload}>
+                {copiedPayload ? <Check size={11} /> : <Copy size={11} />}
+                <span>{copiedPayload ? "Copied" : "Copy JSON"}</span>
               </button>
             </div>
             <pre style={{
-              background: "var(--bg-code)",
-              padding: 14,
-              borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--border-subtle)",
-              fontSize: 11.5,
-              fontFamily: "JetBrains Mono, monospace",
-              color: "#94a3b8",
-              maxHeight: 380,
+              background: "var(--fl-bg)",
+              border: "0.5px solid var(--fl-hairline)",
+              borderRadius: "var(--fl-radius-sm)",
+              padding: "10px",
+              fontFamily: "var(--fl-font-data)",
+              fontSize: "11px",
+              color: "var(--fl-dim)",
+              maxHeight: "300px",
               overflowY: "auto"
             }}>
               {JSON.stringify(result, null, 2)}
             </pre>
           </div>
         )}
-      </SpotlightCard>
+      </div>
     </div>
   );
 }
