@@ -1,226 +1,617 @@
-# FraudLens — AI Chargeback Risk Manager (Track 02)
+# FraudLens
 
-> **Stop the merchant losing money to fraud, returns, and chargebacks.**  
-> FraudLens is a defense-only fraud detector, evidence verifier, and auto-responder scoring payment transactions with **measured precision, recall, and false-positive cost** on a locked held-out test set.
+### Financial Risk Intelligence & Security Operations Console
 
----
+> **Detect fraud. Understand why. Defend the transaction.**
 
-## Interface Walkthrough
+FraudLens is a defense-only payment risk intelligence platform built for merchants dealing with fraud, returns, and chargebacks.
 
-### Live demo
-> Check it out at : https://fraudlens-lyart.vercel.app/
+It takes a Razorpay payment payload, evaluates it through a locked XGBoost fraud model, explains the prediction using TreeSHAP, synthesizes supporting evidence with Gemini, and records the complete decision in an immutable audit trail.
 
-### 1. Payment Risk Assessment Workbench
-*Ingest raw Razorpay payment payloads -> Feature normalization -> XGBoost ML Ground Truth -> SHAP TreeExplainer -> Gemini Ground Truth Evidence & Auto-Drafted Chargeback Dispute Defense.*
+The goal isn't just to say **"this transaction is fraudulent."**
 
-![Payment Risk Assessment Workbench](docs/screenshots/workbench_analyzer.png)
+It's to answer:
 
----
+> **What happened, why is it risky, and what should the merchant do about it?**
 
-### 2. Real-Time Telemetry Stream & Audit Trail Inspector
-*Live payment stream evaluated against the locked threshold (0.8351) with filter tabs (Escalate, Monitor, Cleared) and deep immutable audit drawer.*
-
-![Telemetry Feed & Audit Trail](docs/screenshots/live_feed_audit.png)
+**Live Demo:** https://fraudlens-lyart.vercel.app/
 
 ---
 
-### 3. Honest Metrics & Economic ROI / False-Positive Cost Simulator
-*Evaluated strictly on 88,581 held-out test samples with interactive Rupee business impact modeling (AOV x FPR).*
+## What FraudLens Does
 
-![Honest Metrics & ROI Simulator](docs/screenshots/honest_metrics_roi.png)
+FraudLens turns a raw payment into an explainable, auditable risk decision.
 
----
-
-## Key Highlights & Performance Benchmark
-
-| Requirement | Implementation & Measured Metric | Verification Protocol |
-|---|---|---|
-| **Class of Loss** | Carding attacks, payment fraud, and dispute chargebacks | Ingests real & test-mode Razorpay payloads |
-| **Ground Truth ML** | **XGBoost Classifier** (400 estimators, `scale_pos_weight = 27.58`) | Trained on 590,540 IEEE-CIS transactions |
-| **Precision** | **69.25%** on locked test set | 7 out of 10 flagged transactions are true fraud |
-| **Recall** | **60.31%** on locked test set | Catches >60% of all fraud attacks |
-| **AUC-ROC** | **0.9477** | Outstanding discrimination across decision space |
-| **False Positive Rate** | **0.00971 (0.97%)** | Explicitly reported & priced in Rupee economics |
-| **Zero Data Leakage** | **70 / 15 / 15 Stratified Split** | Test IDs frozen in `locked_test_ids.csv` |
-| **Explainability** | **TreeSHAP Attributions** (top 5 directional drivers) | Real-time feature contribution breakdown |
-| **LLM Ground Truth** | **Gemini Cascade** (`gemini-3.6-flash` -> `3.5-flash` -> Heuristic) | Never overrides ML decision; drafts dispute responses |
-| **Defense-Only** | Hardcoded immutable classification constraint | Disqualifies any offensive capability |
-
----
-
-## 5-Stage Zero-Leakage Pipeline Architecture
-
-```
-+-------------------------+
-| 1. Razorpay Ingestion   |  Raw webhook/SDK JSON (paise, method, IIN, contact, timestamps)
-+------------+------------+
-             |
-             v
-+-------------------------+
-| 2. Feature Engineering  |  Maps Razorpay -> 42 IEEE-CIS features using TRAIN-SET medians
-+------------+------------+
-             |
-             v
-+-------------------------+
-| 3. XGBoost Engine       |  Scores posterior P(fraud). Evaluated at threshold = 0.8351
-+------------+------------+
-             |
-             v
-+-------------------------+
-| 4. SHAP TreeExplainer   |  Calculates exact directional attribution vectors for top 5 drivers
-+------------+------------+
-             |
-             v
-+-------------------------+
-| 5. Gemini Cascade       |  Synthesizes evidence summary & drafts formal dispute package
-+------------+------------+
-             |
-             v
-+-------------------------+
-| 6. Immutable Audit Trail|  Persisted to audit_log.json + Streamed to Live Dashboard
-+-------------------------+
+```text
+Razorpay Payment
+       │
+       ▼
+Feature Normalization
+       │
+       ▼
+XGBoost Fraud Scoring
+       │
+       ▼
+SHAP Risk Attribution
+       │
+       ▼
+Evidence Synthesis
+       │
+       ▼
+Recommended Action
+       │
+       ▼
+Immutable Audit Trail
 ```
 
----
+Every transaction is classified into one of three operational states:
 
-## False-Positive Cost & Rupee Economic Impact
+| Decision     | Meaning                                      |
+| ------------ | -------------------------------------------- |
+| **Escalate** | High-confidence fraud requiring intervention |
+| **Monitor**  | Suspicious activity requiring observation    |
+| **Clear**    | No significant fraud signal detected         |
 
-The competition bar requires **honest metrics including false-positive cost**. Reporting raw accuracy or F1 alone ignores merchant friction:
-
-$$\text{FPR} = \frac{\text{False Positives}}{\text{True Negatives} + \text{False Positives}} = \mathbf{0.9710\%}$$
-
-### Economic Impact Model ($AOV = \text{Rs. 2,500}$)
-
-At a monthly volume of **50,000 transactions** with a natural fraud rate of ~3.5%:
-
-- **Fraud Loss Prevented**: $\approx 1,055\text{ attacks caught} \times \text{Rs. 2,500} = \mathbf{+\text{Rs. 26,37,500/month}}$
-- **False-Positive Friction**: $\approx 469\text{ legit txns flagged} \times \text{Rs. 2,500} = \mathbf{-\text{Rs. 11,72,500/month}}$
-- **Net Merchant Financial Margin**: $\mathbf{+\text{Rs. 14,65,000/month preserved}}$
-
-*The decision threshold (0.8351) was chosen on the validation split to maximize F1, striking an optimal balance between catching fraud and minimizing customer checkout friction.*
+The ML model remains the sole decision-maker. The LLM layer does not override the prediction.
 
 ---
 
-## Multi-Model Gemini Fallback Cascade
+# Interface
 
-To ensure high availability in production, [`backend/pipeline/llm_report.py`](backend/pipeline/llm_report.py) implements an automatic multi-model fallback cascade using the `google-genai` SDK:
+## Command Center
 
-```python
-DEFAULT_MODELS_CASCADE = [
-    "gemini-3.6-flash",      # Primary high-speed synthesizer
-    "gemini-3.5-flash",      # Secondary fallback
-    "gemini-3.5-flash-lite", # High-throughput fallback
-    "gemini-2.5-flash",      # Standard fallback
-    "gemini-2.0-flash",      # Legacy fallback
-    "gemini-2.0-flash-lite", # Lightweight fallback
-    "gemini-1.5-flash",      # Baseline fallback
-]
+The Command Center provides a real-time operational view of payment activity.
+
+It shows:
+
+* Live transaction volume
+* High-risk escalations
+* Active monitoring cases
+* Cleared transactions
+* Fraud probability per transaction
+* Payment method and route
+* Live transaction feed
+* Immutable audit records
+
+![Command Center](docs\screenshots\Screenshot (31).png)
+
+---
+
+## Investigation & Scoring Workbench
+
+The Investigation Workbench is where individual payments are analyzed.
+
+A Razorpay payment payload can be submitted directly for evaluation.
+
+The pipeline then performs:
+
+1. Razorpay payload ingestion
+2. Feature normalization
+3. XGBoost fraud scoring
+4. SHAP attribution
+5. Evidence synthesis
+6. Recommended action generation
+7. Audit persistence
+
+![Payment Risk Assessment Workbench](docs\screenshots\Screenshot (32).png)
+
+### Explainable Risk Decisions
+
+FraudLens doesn't stop at a probability score.
+
+TreeSHAP identifies the strongest directional contributors to the prediction, allowing an investigator to see **why the model reached its conclusion**.
+
+Example:
+
+```text
+Fraud Probability
+        94.2%
+
+Risk Drivers
+
+Transaction amount       ██████████  +42%
+Device mismatch          ████████    +21%
+Transaction velocity     ███████     +17%
+Location anomaly         █████       +11%
+Merchant behaviour       ███          +9%
 ```
 
-- If an upstream model experiences rate limits (`429`) or temporary unavailability (`503`), the engine automatically attempts the next candidate in the cascade.
-- If all API models fail or `GEMINI_API_KEY` is unset, the system seamlessly uses the deterministic `_heuristic_report()` engine so payment scoring **never halts**.
+The result is a decision that can be investigated rather than a black-box prediction.
 
 ---
 
-## Defense-Only Security Guarantee
+## Intelligence & Economic Impact
 
-1. **XGBoost is the Sole Decision Maker**: The ML probability and threshold determine `xgboost_label`.
-2. **Immutable Server-Side Actions**:
-   - `xgboost_label == "fraud"` -> `recommended_action = "escalate"` (auto-drafts dispute package)
-   - `xgboost_label == "not_fraud"` and $P(\text{fraud}) \ge 0.35$ -> `recommended_action = "monitor"`
-   - otherwise -> `recommended_action = "clear"` (`dispute_draft = null`)
-3. **Strict Non-Contradiction**: Gemini only explains evidence and formats chargeback responses; it is strictly prevented from altering or softening the ML verdict.
+The Intelligence console connects model performance with actual merchant economics.
 
----
+It provides:
 
-## Cloud Deployment Guide (Railway + Vercel / Render)
+* Precision
+* Recall
+* False-positive rate
+* AUC-ROC
+* Locked test-set statistics
+* False-positive cost modelling
+* Fraud loss prevention estimates
+* Net merchant financial impact
 
-### 1. Deploy Backend on Railway
-1. Push this repository to GitHub.
-2. Sign in to [railway.app](https://railway.app/) and select **New Project** -> **Deploy from GitHub repo**.
-3. Railway automatically uses [`backend/Dockerfile`](backend/Dockerfile) or [`railway.json`](railway.json). Set **Root Directory** to `backend`.
-4. In **Variables**, add:
-   - `GEMINI_API_KEY`: `your_api_key_here`
-   - `MODEL_PATH`: `./model/model.pkl`
-   - `AUDIT_LOG_PATH`: `./audit_log.json`
-5. In **Settings** -> **Networking**, click **Generate Domain** (e.g. `https://fraudlens-backend.up.railway.app`).
+![Intelligence & Economic Impact](docs/screenshots/honest_metrics_roi.png)
 
-### 2. Alternative: Deploy Backend on Render
-1. Sign in to [render.com](https://render.com/) -> **New Web Service**.
-2. Connect repo `praju120056/razorpay_track2`.
-3. Set **Root Directory** = `backend`, **Runtime** = `Python 3`.
-4. Set **Build Command** = `pip install -r requirements.txt` and **Start Command** = `uvicorn main:app --host 0.0.0.0 --port $PORT`.
-5. Add environment variables (`GEMINI_API_KEY`, `MODEL_PATH`, `AUDIT_LOG_PATH`).
+The simulator allows merchants to vary:
 
-### 3. Deploy Frontend on Vercel
-1. Sign in to [vercel.com](https://vercel.com/) -> **Add New Project** -> Import repo.
-2. Set **Root Directory** to `frontend` and **Framework Preset** to `Vite`.
-3. In **Environment Variables**, add:
-   - `VITE_API_BASE_URL`: `https://your-backend-url.up.railway.app` (without trailing slash).
-4. Click **Deploy**. Vercel uses [`frontend/vercel.json`](frontend/vercel.json) for automatic SPA routing.
+* Monthly transaction volume
+* Average order value
+
+and immediately see how model performance translates into potential financial impact.
 
 ---
 
-## Local Quickstart & Development
+# Model Performance
 
-### 1. Clone & Setup Backend
+FraudLens is evaluated on a **locked held-out test set of 88,581 transactions**.
+
+| Metric              |                            Result |
+| ------------------- | --------------------------------: |
+| Precision           |                        **69.25%** |
+| Recall              |                        **60.31%** |
+| AUC-ROC             |                        **0.9477** |
+| False Positive Rate |                        **0.971%** |
+| Locked Test Samples |                        **88,581** |
+| Training Dataset    | **590,540 IEEE-CIS transactions** |
+
+### What these numbers mean
+
+**69.25% precision**
+
+Approximately 7 out of every 10 transactions flagged as fraud are actually fraudulent.
+
+**60.31% recall**
+
+The model detects more than 60% of fraudulent transactions in the held-out evaluation set.
+
+**0.9477 AUC-ROC**
+
+The model demonstrates strong discrimination between fraudulent and legitimate transactions across the decision space.
+
+**0.971% false-positive rate**
+
+Fewer than 1% of legitimate transactions are incorrectly classified as fraud at the deployed threshold.
+
+---
+
+# Zero-Leakage Evaluation
+
+FraudLens uses a strict train / validation / test protocol.
+
+```text
+IEEE-CIS Dataset
+       │
+       ├── 70% Training
+       │
+       ├── 15% Validation
+       │       └── Threshold selection
+       │
+       └── 15% Locked Test
+               └── Final evaluation
+```
+
+The test-set IDs are frozen in:
+
+```text
+locked_test_ids.csv
+```
+
+The test set is never used for:
+
+* Feature engineering decisions
+* Threshold tuning
+* Model selection
+* Hyperparameter tuning
+
+The final metrics therefore represent performance on previously unseen transactions.
+
+---
+
+# Fraud Detection Pipeline
+
+FraudLens uses a six-stage processing pipeline.
+
+### 01 — Razorpay Ingestion
+
+Raw Razorpay webhook / SDK payloads are accepted by the backend.
+
+Payment information such as:
+
+* amount
+* payment method
+* card/IIN information
+* contact information
+* timestamps
+* transaction metadata
+
+is extracted and normalized.
+
+### 02 — Feature Engineering
+
+Razorpay fields are mapped into the feature representation expected by the IEEE-CIS model.
+
+Missing values are handled using statistics derived from the training data.
+
+### 03 — XGBoost Risk Engine
+
+The normalized transaction is passed to the XGBoost classifier.
+
+The model produces:
+
+```text
+P(fraud)
+```
+
+The production decision threshold is:
+
+```text
+0.8351
+```
+
+### 04 — SHAP Explainability
+
+TreeSHAP calculates directional feature contributions for the prediction.
+
+The strongest drivers are surfaced to the investigator.
+
+### 05 — Evidence Synthesis
+
+Gemini converts the model output and available transaction evidence into a human-readable risk summary and, when appropriate, a chargeback dispute draft.
+
+**Gemini does not make the fraud decision.**
+
+### 06 — Audit Trail
+
+The complete transaction decision is persisted and exposed through the operational console.
+
+This creates a traceable chain from:
+
+```text
+Payment → Features → Model → Explanation → Action
+```
+
+---
+
+# AI Architecture
+
+FraudLens deliberately separates **decision-making** from **language generation**.
+
+```text
+                    ┌──────────────────┐
+                    │   Razorpay JSON   │
+                    └────────┬─────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │ Feature Pipeline │
+                    └────────┬─────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │     XGBoost      │
+                    │  DECISION MAKER  │
+                    └────────┬─────────┘
+                             │
+                    ┌────────┴────────┐
+                    ▼                 ▼
+              ┌──────────┐     ┌─────────────┐
+              │  TreeSHAP │     │ Gemini      │
+              │ Explain.  │     │ Synthesis   │
+              └──────────┘     └──────┬──────┘
+                                      │
+                                      ▼
+                              Evidence / Draft
+```
+
+This prevents the LLM from hallucinating or overriding the underlying fraud classification.
+
+---
+
+# Defense-Only Guarantee
+
+FraudLens is explicitly designed for defensive fraud prevention.
+
+The decision logic is enforced server-side:
+
+```text
+XGBoost = fraud
+        ↓
+recommended_action = escalate
+        ↓
+Generate dispute evidence
+```
+
+```text
+XGBoost = not_fraud
+AND P(fraud) ≥ 0.35
+        ↓
+recommended_action = monitor
+```
+
+```text
+Otherwise
+        ↓
+recommended_action = clear
+```
+
+Gemini can:
+
+* summarize evidence
+* explain the available signals
+* draft chargeback responses
+
+Gemini cannot:
+
+* change the XGBoost classification
+* lower the risk score
+* convert fraud into a legitimate transaction
+* trigger offensive actions
+
+---
+
+# Economic Impact
+
+Model metrics only tell part of the story.
+
+FraudLens explicitly models the cost of false positives.
+
+For an illustrative merchant with:
+
+```text
+Monthly transactions = 50,000
+Average order value  = ₹2,500
+Fraud rate           ≈ 3.5%
+```
+
+the model estimates:
+
+| Impact                  | Estimated Monthly Value |
+| ----------------------- | ----------------------: |
+| Fraud loss prevented    |         **+₹26,37,500** |
+| False-positive friction |         **−₹11,72,500** |
+| Net financial impact    |         **+₹14,65,000** |
+
+These are **scenario estimates**, not observed production savings.
+
+The simulator allows the assumptions to be changed interactively so merchants can evaluate the model against their own transaction volume and AOV.
+
+---
+
+# Reliability
+
+The evidence-generation layer uses a Gemini fallback cascade.
+
+If a model is unavailable or rate-limited, FraudLens attempts the next configured model.
+
+If all Gemini models are unavailable, a deterministic heuristic report is used.
+
+This means:
+
+> **Payment risk scoring does not depend on Gemini availability.**
+
+The core XGBoost decision engine remains independent of the LLM layer.
+
+---
+
+# Tech Stack
+
+### Machine Learning
+
+* XGBoost
+* TreeSHAP
+* IEEE-CIS Fraud Detection Dataset
+* Scikit-learn
+
+### AI
+
+* Google Gemini
+* `google-genai`
+
+### Backend
+
+* Python
+* FastAPI
+* Uvicorn
+
+### Frontend
+
+* React
+* Vite
+* JavaScript
+
+### Deployment
+
+* Vercel
+* Railway / Render
+
+---
+
+# API
+
+| Method | Endpoint        | Purpose                             |
+| ------ | --------------- | ----------------------------------- |
+| `POST` | `/analyze`      | Evaluate a Razorpay payment         |
+| `GET`  | `/metrics`      | Retrieve locked evaluation metrics  |
+| `GET`  | `/transactions` | Retrieve analyzed transactions      |
+| `GET`  | `/audit/{id}`   | Retrieve an individual audit record |
+| `POST` | `/demo/seed`    | Seed synthetic test payments        |
+| `GET`  | `/health`       | Check backend/model health          |
+
+Interactive API documentation is available through FastAPI at:
+
+```text
+/docs
+```
+
+---
+
+# Project Structure
+
+```text
+FraudLens/
+│
+├── backend/
+│   ├── model/
+│   │   ├── train.py
+│   │   └── model.pkl
+│   │
+│   ├── pipeline/
+│   │   └── llm_report.py
+│   │
+│   ├── main.py
+│   ├── requirements.txt
+│   └── Dockerfile
+│
+├── frontend/
+│   ├── src/
+│   ├── public/
+│   └── package.json
+│
+├── docs/
+│   └── screenshots/
+│
+├── ieee_cis/
+│
+└── README.md
+```
+
+---
+
+# Running Locally
+
+## Backend
+
 ```bash
-git clone https://github.com/praju120056/razorpay_track2.git
-cd razorpay_track2/backend
+git clone https://github.com/praju120056/FraudLens.git
+cd FraudLens/backend
 
-# Create virtual environment
 python -m venv venv
-venv\Scripts\activate   # On Windows (or 'source venv/bin/activate' on Linux/macOS)
+```
 
-# Install dependencies
+### Windows
+
+```bash
+venv\Scripts\activate
+```
+
+### Linux / macOS
+
+```bash
+source venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment (`backend/.env`)
+Create `backend/.env`:
+
 ```env
 RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxx
 RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
 GEMINI_API_KEY=your_gemini_api_key_here
+
 MODEL_PATH=./model/model.pkl
 AUDIT_LOG_PATH=./audit_log.json
 IEEE_DATA_PATH=../ieee_cis/train_transaction.csv
 ```
 
-### 3. Start Backend Server
+Start the backend:
+
 ```bash
-# From backend/
 python main.py
 ```
-*API running at `http://127.0.0.1:8000` (Swagger docs at `http://127.0.0.1:8000/docs`).*
 
-### 4. Start Frontend Dashboard
+Backend:
+
+```text
+http://127.0.0.1:8000
+```
+
+API documentation:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+---
+
+## Frontend
+
 ```bash
-cd ../frontend
+cd frontend
 npm install
 npm run dev
 ```
-*UI dashboard running at `http://localhost:5173` (or `http://localhost:5174`).*
+
+Frontend:
+
+```text
+http://localhost:5173
+```
 
 ---
 
-## API Endpoints Reference
+# Retraining
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/analyze` | Run full pipeline on raw Razorpay JSON payload |
-| `GET` | `/metrics` | Return locked held-out test metrics & split manifest |
-| `GET` | `/transactions` | List all analyzed transactions from audit log |
-| `GET` | `/audit/{id}` | Fetch full audit record and SHAP vectors for payment ID |
-| `POST` | `/demo/seed` | Ingest 16 synthetic test-mode payments into the live feed |
-| `GET` | `/health` | Liveness check confirming `model.pkl` is loaded |
+To reproduce the training and evaluation pipeline:
 
----
-
-## Retraining from Scratch
-
-To re-verify the split protocol and reproduce the exact metrics:
 ```bash
 cd backend
 python -m model.train
 ```
-This executes the stratified split, saves `locked_test_ids.csv`, tunes the threshold on validation, evaluates once on test, and outputs `metrics.json` and `model.pkl`.
+
+The training process:
+
+1. Creates the stratified train / validation / test split
+2. Freezes the held-out test IDs
+3. Trains the XGBoost model
+4. Selects the decision threshold on validation data
+5. Evaluates once on the locked test set
+6. Saves the model and evaluation metrics
+
+---
+
+# Why FraudLens?
+
+Most fraud systems answer:
+
+> **"Is this transaction fraudulent?"**
+
+FraudLens tries to answer the questions that come after that:
+
+> **Why?**
+
+> **What evidence supports the decision?**
+
+> **What should the merchant do?**
+
+> **What does that decision cost?**
+
+> **Can the entire decision be audited later?**
+
+That's the difference between a fraud classifier and a **fraud operations system**.
+
+---
+
+## Status
+
+FraudLens is a working defense-only prototype demonstrating:
+
+* Real-time payment risk scoring
+* Explainable ML
+* LLM-assisted evidence synthesis
+* Chargeback response generation
+* Operational transaction monitoring
+* Immutable audit logging
+* Locked-set model evaluation
+* Merchant economic simulation
+
+**Built for Razorpay Buildathon — Track 02: AI Risk Manager.**

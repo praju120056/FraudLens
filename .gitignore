@@ -64,6 +64,8 @@ backend/audit_log.json
 ehthumbs.db
 Thumbs.db
 
+
+
 # IDEs & Local Agent Configs
 .vscode/
 .idea/
